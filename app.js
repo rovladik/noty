@@ -269,6 +269,7 @@ tap($('tap-prev'), () => go(-1));
 tap($('tap-next'), () => go(1));
 tap($('tap-menu'), () => showToolbar());
 tap($('btn-home'), () => showLibrary());
+tap($('btn-close'), () => showLibrary());
 tap($('btn-two'), () => {
   twoPage = !twoPage;
   localStorage.setItem('twoPage', twoPage ? '1' : '0');

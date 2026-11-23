@@ -77,3 +77,7 @@ button.nav:active, button.tool:active { background: #4b5563; }
 .word-doc table { border-collapse: collapse; max-width: 100%; break-inside: avoid; }
 .word-doc td, .word-doc th { border: 1px solid #ccc; padding: 4px 8px; }
 .word-end { display: block; height: 0; margin: 0; padding: 0; }
+
+.mid { display: flex; align-items: center; gap: 20px; }
+button.tool.close { font-size: 20px; padding: 12px 22px; background: #7f1d1d; }
+button.tool.close:active { background: #991b1b; }
