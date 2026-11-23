@@ -81,3 +81,12 @@ button.nav:active, button.tool:active { background: #4b5563; }
 .mid { display: flex; align-items: center; gap: 20px; }
 button.tool.close { font-size: 20px; padding: 12px 22px; background: #7f1d1d; }
 button.tool.close:active { background: #991b1b; }
+
+.lib-tools { display: flex; gap: 12px; margin-top: 20px; flex-wrap: wrap; align-items: center; }
+#search { flex: 1; min-width: 220px; font-size: 19px; padding: 12px 16px; border-radius: 12px; border: 0; background: #1f2937; color: #fff; -webkit-user-select: text; user-select: text; }
+.sort-label { font-size: 18px; color: #9ca3af; display: flex; align-items: center; gap: 8px; }
+#sort { font-size: 18px; padding: 10px 12px; border-radius: 12px; border: 0; background: #1f2937; color: #fff; }
+.folders { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+.folders:empty { display: none; }
+.chip { font-size: 18px; padding: 10px 16px; border-radius: 999px; border: 0; background: #1f2937; color: #e5e7eb; cursor: pointer; }
+.chip.on { background: #f59e0b; color: #111827; }

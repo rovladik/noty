@@ -27,14 +27,48 @@ const dbDel = (id) => tx('readwrite', (s) => s.delete(id));
 if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
 
 // ---------- Библиотека ----------
+let curFolder = localStorage.getItem('folder') || '';
+$('sort').value = localStorage.getItem('sort') || 'opened';
+$('sort').addEventListener('change', () => { localStorage.setItem('sort', $('sort').value); showLibrary(); });
+$('search').addEventListener('input', () => showLibrary());
+let libToken = 0;
 async function showLibrary() {
   closeDoc();
   $('viewer').classList.add('hidden');
   $('library').classList.remove('hidden');
-  const items = (await dbAll()).sort((a, b) => (b.opened || 0) - (a.opened || 0));
+  const tok = ++libToken;
+  const all = await dbAll();
+  if (tok !== libToken) return; // пришёл более новый запрос
+  $('empty-hint').classList.toggle('hidden', all.length > 0);
+  $('lib-tools').classList.toggle('hidden', all.length === 0);
+  // папки
+  const folders = [...new Set(all.map((it) => it.folder).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ru'));
+  if (curFolder && !folders.includes(curFolder)) curFolder = '';
+  const chips = $('folders');
+  chips.innerHTML = '';
+  if (folders.length) {
+    for (const f of ['', ...folders]) {
+      const b = document.createElement('button');
+      b.className = 'chip' + (f === curFolder ? ' on' : '');
+      b.textContent = f ? '📁 ' + f : 'Все';
+      b.onclick = () => { curFolder = f; localStorage.setItem('folder', f); showLibrary(); };
+      chips.append(b);
+    }
+  }
+  const q = $('search').value.trim().toLowerCase();
+  const name = (it) => it.title || baseName(it.name);
+  const sorts = {
+    opened: (a, b) => (b.opened || 0) - (a.opened || 0),
+    name: (a, b) => name(a).localeCompare(name(b), 'ru', { numeric: true }),
+    added: (a, b) => (b.added || b.opened || 0) - (a.added || a.opened || 0),
+    file: (a, b) => (b.fileDate || 0) - (a.fileDate || 0),
+  };
+  const items = all
+    .filter((it) => !curFolder || it.folder === curFolder)
+    .filter((it) => !q || name(it).toLowerCase().includes(q))
+    .sort(sorts[$('sort').value] || sorts.opened);
   const ul = $('score-list');
   ul.innerHTML = '';
-  $('empty-hint').classList.toggle('hidden', items.length > 0);
   for (const it of items) {
     const li = document.createElement('li');
     const open = document.createElement('div');
@@ -43,7 +77,19 @@ async function showLibrary() {
     open.onclick = () => openScore(it.id);
     const meta = document.createElement('span');
     meta.className = 'meta';
-    meta.textContent = it.pages ? `стр. ${it.page + 1} из ${it.pages}` : '';
+    const dt = (t) => t ? new Date(t).toLocaleDateString('ru-RU') : '';
+    const sv = $('sort').value;
+    const when = sv === 'file' ? dt(it.fileDate) : sv === 'added' ? dt(it.added || it.opened) : '';
+    meta.textContent = [it.folder && !curFolder ? '📁 ' + it.folder : '', when, it.pages ? `стр. ${it.page + 1} из ${it.pages}` : ''].filter(Boolean).join(' · ');
+    const fol = document.createElement('button');
+    fol.className = 'del';
+    fol.textContent = '📁';
+    fol.title = 'Положить в папку';
+    fol.onclick = async () => {
+      const t = prompt('Название папки (например «Шопен» или «Упражнения»).\nОставьте пустым, чтобы убрать из папки:', it.folder || curFolder || '');
+      if (t === null) return;
+      const r = await dbGet(it.id); r.folder = t.trim(); await dbPut(r); showLibrary();
+    };
     const del = document.createElement('button');
     del.className = 'del';
     del.textContent = '✕';
@@ -59,7 +105,7 @@ async function showLibrary() {
       const t = prompt('Новое название:', open.textContent);
       if (t && t.trim()) { const r = await dbGet(it.id); r.title = t.trim(); await dbPut(r); showLibrary(); }
     };
-    li.append(open, meta, ren, del);
+    li.append(open, meta, fol, ren, del);
     ul.append(li);
   }
 }
@@ -74,7 +120,8 @@ $('file-input').addEventListener('change', async (e) => {
     const id = `${f.name}|${f.size}`;
     const old = await dbGet(id);
     const buf = await f.arrayBuffer();
-    await dbPut({ ...(old || {}), id, name: f.name, data: buf, page: old ? old.page : 0, pages: old ? old.pages : 0, opened: Date.now() });
+    await dbPut({ folder: curFolder, ...(old || {}), id, name: f.name, data: buf, page: old ? old.page : 0, pages: old ? old.pages : 0,
+      added: (old && old.added) || Date.now(), fileDate: f.lastModified || 0, opened: Date.now() });
     firstId = firstId || id;
   }
   if (files.length === 1 && firstId) openScore(firstId); else showLibrary();

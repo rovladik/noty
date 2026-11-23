@@ -22,6 +22,18 @@
     <label class="big-btn" for="file-input">＋ Открыть ноты</label>
     <input id="file-input" type="file" accept="application/pdf,.pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx" multiple hidden>
   </header>
+  <div id="lib-tools" class="lib-tools">
+    <input id="search" type="search" placeholder="🔍 Поиск по названию" autocomplete="off">
+    <label class="sort-label">Порядок:
+      <select id="sort">
+        <option value="opened">Недавно открытые</option>
+        <option value="name">По названию (А–Я)</option>
+        <option value="added">Недавно добавленные</option>
+        <option value="file">По дате файла</option>
+      </select>
+    </label>
+  </div>
+  <div id="folders" class="folders"></div>
   <ul id="score-list"></ul>
   <p id="empty-hint" class="hint">Нажмите «Открыть ноты» и выберите файл PDF или Word с нотами в приложении «Файлы».<br>Ноты сохранятся здесь, и в следующий раз откроются сразу, на той же странице.</p>
 </section>
