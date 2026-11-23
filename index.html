@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Ноты">
+<meta name="theme-color" content="#111827">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="manifest" href="manifest.webmanifest">
+<title>Ноты</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- Библиотека -->
+<section id="library" class="screen">
+  <header class="lib-head">
+    <h1>🎹 Мои ноты</h1>
+    <label class="big-btn" for="file-input">＋ Открыть PDF</label>
+    <input id="file-input" type="file" accept="application/pdf,.pdf" multiple hidden>
+  </header>
+  <ul id="score-list"></ul>
+  <p id="empty-hint" class="hint">Нажмите «Открыть PDF» и выберите файл с нотами в приложении «Файлы».<br>Ноты сохранятся здесь, и в следующий раз откроются сразу, на той же странице.</p>
+</section>
+
+<!-- Просмотр нот -->
+<section id="viewer" class="screen hidden">
+  <div id="pages"></div>
+
+  <!-- невидимые зоны касания: левая треть — назад, остальное — вперёд -->
+  <div id="tap-prev" class="tap-zone"></div>
+  <div id="tap-next" class="tap-zone"></div>
+  <div id="tap-menu" class="tap-zone"></div>
+
+  <div id="toolbar" class="bar">
+    <button id="btn-home" class="tool">‹ Ноты</button>
+    <span id="title" class="title"></span>
+    <button id="btn-two" class="tool">Две страницы</button>
+  </div>
+
+  <div id="navbar" class="bar">
+    <button id="btn-prev" class="nav">◀ Назад</button>
+    <span id="page-info"></span>
+    <button id="btn-next" class="nav">Вперёд ▶</button>
+  </div>
+  <div id="loading" class="hidden">Загрузка…</div>
+</section>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
