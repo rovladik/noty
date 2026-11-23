@@ -64,3 +64,16 @@ button.nav:active, button.tool:active { background: #4b5563; }
 .flash { position: absolute; top: 50%; z-index: 4; font-size: 60px; color: rgba(245,158,11,.8);
   transform: translateY(-50%); pointer-events: none; animation: fade .5s forwards; }
 @keyframes fade { from { opacity: 1; } to { opacity: 0; } }
+
+/* ---------- Word ---------- */
+.word-wrap { position: absolute; inset: 0; overflow: hidden; background: #fff; }
+.word-doc {
+  column-fill: auto; color: #111; font: 21px/1.5 Georgia, "Times New Roman", serif;
+  transition: transform .15s ease-out; -webkit-user-select: none;
+}
+.word-doc img { display: block; max-width: 100%; max-height: var(--colh); height: auto; margin: 0 auto 8px; break-inside: avoid; object-fit: contain; }
+.word-doc p { margin: 0 0 .6em; }
+.word-doc h1, .word-doc h2, .word-doc h3 { break-after: avoid; }
+.word-doc table { border-collapse: collapse; max-width: 100%; break-inside: avoid; }
+.word-doc td, .word-doc th { border: 1px solid #ccc; padding: 4px 8px; }
+.word-end { display: block; height: 0; margin: 0; padding: 0; }

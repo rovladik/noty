@@ -39,7 +39,7 @@ async function showLibrary() {
     const li = document.createElement('li');
     const open = document.createElement('div');
     open.className = 'open';
-    open.textContent = it.title || it.name.replace(/\.pdf$/i, '');
+    open.textContent = it.title || baseName(it.name);
     open.onclick = () => openScore(it.id);
     const meta = document.createElement('span');
     meta.className = 'meta';
@@ -69,13 +69,15 @@ $('file-input').addEventListener('change', async (e) => {
   e.target.value = '';
   let firstId = null;
   for (const f of files) {
+    if (/\.doc$/i.test(f.name)) { alert(`«${f.name}» — это старый формат Word (.doc). Откройте его в Word или Pages и сохраните как .docx или PDF.`); continue; }
+    if (!/\.(pdf|docx)$/i.test(f.name)) { alert(`«${f.name}»: можно открывать только PDF и Word (.docx).`); continue; }
     const id = `${f.name}|${f.size}`;
     const old = await dbGet(id);
     const buf = await f.arrayBuffer();
     await dbPut({ ...(old || {}), id, name: f.name, data: buf, page: old ? old.page : 0, pages: old ? old.pages : 0, opened: Date.now() });
     firstId = firstId || id;
   }
-  if (files.length === 1) openScore(firstId); else showLibrary();
+  if (files.length === 1 && firstId) openScore(firstId); else showLibrary();
 });
 
 // ---------- Просмотр ----------
@@ -83,12 +85,14 @@ let doc = null, rec = null, page = 0, renderToken = 0;
 const cache = new Map(); // ключ "страница@ширинаxвысота" -> canvas
 let twoPage = localStorage.getItem('twoPage') === '1';
 
+const baseName = (n) => n.replace(/\.(pdf|docx)$/i, '');
+const isWord = (r) => /\.docx$/i.test(r.name);
 const isLandscape = () => innerWidth > innerHeight;
 const spread = () => (twoPage && isLandscape() && doc && doc.numPages > 1 ? 2 : 1);
 
 function closeDoc() {
   if (doc) doc.destroy();
-  doc = null; rec = null; cache.clear();
+  doc = null; rec = null; word = null; cache.clear();
   $('pages').innerHTML = '';
   releaseWakeLock();
 }
@@ -99,9 +103,14 @@ async function openScore(id) {
   $('library').classList.add('hidden');
   $('viewer').classList.remove('hidden');
   $('loading').classList.remove('hidden');
-  $('title').textContent = r.title || r.name.replace(/\.pdf$/i, '');
+  $('title').textContent = r.title || baseName(r.name);
   rec = r;
-  doc = await pdfjsLib.getDocument({ data: new Uint8Array(r.data.slice(0)) }).promise;
+  try {
+    doc = isWord(r) ? await openWord(r) : await pdfjsLib.getDocument({ data: new Uint8Array(r.data.slice(0)) }).promise;
+  } catch (err) {
+    alert('Не получилось открыть этот файл. Возможно, он повреждён.');
+    return showLibrary();
+  }
   rec.pages = doc.numPages;
   page = Math.min(r.page || 0, doc.numPages - 1);
   rec.opened = Date.now();
@@ -141,6 +150,7 @@ async function renderPage(n, w, h) {
 
 async function render() {
   if (!doc) return;
+  if (word) return renderWord();
   const token = ++renderToken;
   const s = spread();
   const { w, h } = areaSize();
@@ -183,6 +193,72 @@ function flash(dir) {
   f.style[dir > 0 ? 'right' : 'left'] = '20px';
   $('viewer').append(f);
   setTimeout(() => f.remove(), 600);
+}
+
+// ---------- Файлы Word (.docx) ----------
+// Текст и картинки из Word раскладываются на «страницы» размером с экран.
+let word = null;
+function loadMammoth() {
+  if (window.mammoth) return Promise.resolve();
+  return new Promise((res, rej) => {
+    const sc = document.createElement('script');
+    sc.src = './lib/mammoth.browser.min.js';
+    sc.onload = res; sc.onerror = rej;
+    document.head.append(sc);
+  });
+}
+async function openWord(r) {
+  await loadMammoth();
+  const out = await window.mammoth.convertToHtml({ arrayBuffer: r.data.slice(0) });
+  const wrap = document.createElement('div');
+  wrap.className = 'word-wrap';
+  const inner = document.createElement('div');
+  inner.className = 'word-doc';
+  inner.innerHTML = out.value || '<p>(пустой документ)</p>';
+  const end = document.createElement('span');
+  end.className = 'word-end';
+  inner.append(end);
+  wrap.append(inner);
+  $('pages').replaceChildren(wrap);
+  await Promise.all([...inner.querySelectorAll('img')].map((im) =>
+    im.complete ? 0 : new Promise((ok) => { im.onload = im.onerror = ok; })));
+  word = { wrap, inner, end, key: '' };
+  const d = { numPages: 1, destroy() {} };
+  layoutWord(d);
+  return d;
+}
+function layoutWord(d) {
+  const { w, h } = areaSize();
+  const s = twoPage && isLandscape() ? 2 : 1;
+  const key = `${w}x${h}x${s}`;
+  if (word.key === key) return false;
+  const oldN = d.numPages;
+  const pad = 28, gap = pad * 2;
+  const colW = Math.floor((w - pad * 2 - gap * (s - 1)) / s);
+  const colH = h - pad * 2;
+  Object.assign(word.inner.style, {
+    width: (w - pad * 2) + 'px', height: colH + 'px', columnWidth: colW + 'px',
+    columnGap: gap + 'px', transform: 'none', margin: pad + 'px',
+  });
+  word.inner.style.setProperty('--colh', colH + 'px');
+  word.step = colW + gap;
+  const x = word.end.getBoundingClientRect().left - word.inner.getBoundingClientRect().left;
+  d.numPages = Math.max(1, Math.floor((x + 1) / word.step) + 1);
+  if (word.key && oldN > 1) page = Math.round(page / oldN * d.numPages);
+  word.key = key;
+  return true;
+}
+function renderWord() {
+  layoutWord(doc);
+  page = Math.max(0, Math.min(page, doc.numPages - 1));
+  word.inner.style.transform = `translateX(${-page * word.step}px)`;
+  const s = spread();
+  const last = Math.min(page + s, doc.numPages);
+  $('page-info').textContent = last - page === 2 ? `${page + 1}–${last} из ${doc.numPages}` : `${page + 1} из ${doc.numPages}`;
+  $('btn-prev').disabled = page === 0;
+  $('btn-next').disabled = last >= doc.numPages;
+  rec.page = page; rec.pages = doc.numPages;
+  dbPut(rec);
 }
 
 // ---------- Кнопки и касания ----------
