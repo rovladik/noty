@@ -34,6 +34,7 @@ $('search').addEventListener('input', () => showLibrary());
 let libToken = 0;
 async function showLibrary() {
   closeDoc();
+  if ($("library").classList.contains("hidden")) screenChangedAt = Date.now();
   $('viewer').classList.add('hidden');
   $('library').classList.remove('hidden');
   const tok = ++libToken;
@@ -74,7 +75,7 @@ async function showLibrary() {
     const open = document.createElement('div');
     open.className = 'open';
     open.textContent = it.title || baseName(it.name);
-    open.onclick = () => openScore(it.id);
+    open.onclick = () => { if (Date.now() - screenChangedAt > 350) openScore(it.id); };
     const meta = document.createElement('span');
     meta.className = 'meta';
     const dt = (t) => t ? new Date(t).toLocaleDateString('ru-RU') : '';
@@ -147,6 +148,7 @@ function closeDoc() {
 async function openScore(id) {
   const r = await dbGet(id);
   if (!r) return;
+  screenChangedAt = Date.now();
   $('library').classList.add('hidden');
   $('viewer').classList.remove('hidden');
   $('loading').classList.remove('hidden');
@@ -309,7 +311,14 @@ function renderWord() {
 }
 
 // ---------- Кнопки и касания ----------
-const tap = (el, fn) => el.addEventListener('pointerup', (e) => { e.preventDefault(); fn(); });
+// Используем «click»: иначе после закрытия нот то же касание «проваливалось»
+// в список и снова открывало ноты. Плюс короткая пауза после смены экрана.
+let screenChangedAt = 0;
+const tap = (el, fn) => el.addEventListener('click', (e) => {
+  e.preventDefault(); e.stopPropagation();
+  if (Date.now() - screenChangedAt < 350) return;
+  fn();
+});
 tap($('btn-prev'), () => go(-1));
 tap($('btn-next'), () => go(1));
 tap($('tap-prev'), () => go(-1));
@@ -362,3 +371,8 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 
 showLibrary();
+
+// защита списка от «случайного» касания сразу после закрытия нот
+$('library').addEventListener('click', (e) => {
+  if (Date.now() - screenChangedAt < 350) { e.preventDefault(); e.stopPropagation(); }
+}, true);
