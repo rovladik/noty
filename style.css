@@ -90,3 +90,5 @@ button.tool.close:active { background: #991b1b; }
 .folders:empty { display: none; }
 .chip { font-size: 18px; padding: 10px 16px; border-radius: 999px; border: 0; background: #1f2937; color: #e5e7eb; cursor: pointer; }
 .chip.on { background: #f59e0b; color: #111827; }
+
+.tap-zone, .open, .chip { cursor: pointer; }

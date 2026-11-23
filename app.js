@@ -138,10 +138,17 @@ const isWord = (r) => /\.docx$/i.test(r.name);
 const isLandscape = () => innerWidth > innerHeight;
 const spread = () => (twoPage && isLandscape() && doc && doc.numPages > 1 ? 2 : 1);
 
+function freeCanvas(p) {
+  Promise.resolve(p).then((c) => { if (c && !c.isConnected) { c.width = 0; c.height = 0; } }).catch(() => {});
+}
+function clearCache() {
+  for (const p of cache.values()) freeCanvas(p);
+  cache.clear();
+}
 function closeDoc() {
   if (doc) doc.destroy();
-  doc = null; rec = null; word = null; cache.clear();
   $('pages').innerHTML = '';
+  doc = null; rec = null; word = null; clearCache();
   releaseWakeLock();
 }
 
@@ -157,7 +164,8 @@ async function openScore(id) {
   try {
     doc = isWord(r) ? await openWord(r) : await pdfjsLib.getDocument({ data: new Uint8Array(r.data.slice(0)) }).promise;
   } catch (err) {
-    alert('Не получилось открыть этот файл. Возможно, он повреждён.');
+    $('loading').classList.add('hidden');
+    alert('Не получилось открыть этот файл.\n\nПричина: ' + (err && err.message ? err.message : err));
     return showLibrary();
   }
   rec.pages = doc.numPages;
@@ -178,12 +186,12 @@ function areaSize() {
 
 async function renderPage(n, w, h) {
   const key = `${n}@${w}x${h}`;
-  if (cache.has(key)) return cache.get(key);
+  if (cache.has(key)) { const hit = cache.get(key); cache.delete(key); cache.set(key, hit); return hit; }
   const p = (async () => {
     const pg = await doc.getPage(n + 1);
     const v1 = pg.getViewport({ scale: 1 });
     const scale = Math.min(w / v1.width, h / v1.height);
-    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const vp = pg.getViewport({ scale: scale * dpr });
     const c = document.createElement('canvas');
     c.width = Math.floor(vp.width); c.height = Math.floor(vp.height);
@@ -193,7 +201,12 @@ async function renderPage(n, w, h) {
     return c;
   })();
   cache.set(key, p);
-  if (cache.size > 12) cache.delete(cache.keys().next().value); // не держим слишком много в памяти
+  // iPad строго ограничивает память под картинки страниц: держим немного и сразу освобождаем лишнее
+  while (cache.size > 6) {
+    const k = cache.keys().next().value;
+    freeCanvas(cache.get(k));
+    cache.delete(k);
+  }
   return p;
 }
 
@@ -206,7 +219,15 @@ async function render() {
   const pw = s === 2 ? Math.floor((w - 4) / 2) : w;
   const nums = [page];
   if (s === 2 && page + 1 < doc.numPages) nums.push(page + 1);
-  const canvases = await Promise.all(nums.map((n) => renderPage(n, pw, h)));
+  let canvases;
+  try {
+    canvases = await Promise.all(nums.map((n) => renderPage(n, pw, h)));
+  } catch (err) {
+    // не хватило памяти — освобождаем всё и пробуем ещё раз
+    clearCache();
+    try { canvases = await Promise.all(nums.map((n) => renderPage(n, pw, h))); }
+    catch (err2) { $('loading').classList.add('hidden'); alert('Не получилось показать страницу.\n\nПричина: ' + (err2 && err2.message ? err2.message : err2)); return; }
+  }
   if (token !== renderToken) return;
   $('pages').replaceChildren(...canvases);
   const last = nums[nums.length - 1] + 1;
@@ -357,7 +378,7 @@ document.addEventListener('keydown', (e) => {
 
 // при повороте iPad перерисовываем под новый размер
 let rzTimer;
-addEventListener('resize', () => { clearTimeout(rzTimer); rzTimer = setTimeout(() => { cache.clear(); render(); }, 150); });
+addEventListener('resize', () => { clearTimeout(rzTimer); rzTimer = setTimeout(() => { const old = [...cache.values()]; cache.clear(); render().then(() => old.forEach(freeCanvas)); }, 150); });
 
 // ---------- Экран не гаснет, пока открыты ноты ----------
 let wakeLock = null;
